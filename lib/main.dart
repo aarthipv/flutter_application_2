@@ -8,9 +8,19 @@ import 'package:flutter_application_2/canteens.dart';
 import 'package:flutter_application_2/xerox.dart';
 import 'package:flutter_application_2/delivery.dart';
 import 'package:flutter_application_2/stationary.dart';
+import 'package:flutter_application_2/RazorpaymentPage.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'dart:html';
+import 'dart:js' as js;
+
+import 'dart:js_util' as js_util;
+
 void main() {
   runApp(MyApp());
 }
+ final cartState = CartState();
 
 class CartItem {
   final String name;
@@ -46,8 +56,7 @@ class CartState {
     items.clear();
   }
 }
-
-final cartState = CartState(); // Global instance
+// Global instance
 
 class MyApp extends StatelessWidget {
   @override
@@ -91,6 +100,72 @@ class _MainAppPageState extends State<MainAppPage> {
     );
   }
 }
+
+class MyHomePage extends StatelessWidget {
+  final TextEditingController classNumberController = TextEditingController();
+
+  void openCheckout() {
+    var options = js_util.jsify({
+      'key': 'rzp_test_ry9cS8x8J3XYbD',
+      'amount': cartState.total * 100,
+      'name': 'StudVery',
+      'description': 'Payment for your cart',
+      'prefill': {
+        'contact': '1234567890',
+        'email': 'test@example.com'
+      },
+      'theme': {
+        'color': '#F37254'
+      }
+    });
+    try {
+      js.context.callMethod('openRazorpayPayment', [
+        options,
+        js.allowInterop((response) {
+          // Handle success
+          print('Payment successful: $response');
+        }),
+        js.allowInterop((response) {
+          // Handle failure
+          print('Payment failed: $response');
+        })
+      ]);
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('My Home Page'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            SizedBox(height: 10),
+            TextField(
+              controller: classNumberController,
+              decoration: InputDecoration(
+                labelText: 'Class Number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: openCheckout,
+              child: Text('Proceed to Payment'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 class CartPage extends StatefulWidget {
   @override
@@ -236,11 +311,14 @@ class _CartPageState extends State<CartPage>
                         ),
                         SizedBox(height: 10),
                         ElevatedButton(
-                          onPressed: () {
-                            // Proceed to payment or checkout
-                          },
-                          child: Text('Proceed to Payment'),
-                        ),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => RazorpayPaymentPage(cartState: cartState,)),
+    );
+  },
+  child: Text('Proceed to Payment'),
+),
                       ],
                     ),
                   ),
