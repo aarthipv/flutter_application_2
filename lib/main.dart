@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'dart:html';
+import 'package:flutter/material.dart';
+import 'dart:js' as js;
 
 void main() {
   runApp(MyApp());
@@ -17,6 +22,7 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 
 // Splash Screen
 class SplashScreen extends StatefulWidget {
@@ -112,14 +118,14 @@ class LoginPage extends StatelessWidget {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => MainAppPage()),
-                  );
-                },
-                child: Text('Login'),
-              ),
+  onPressed: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => MainAppPage()),
+    );
+  },
+  child: Text('Login'),
+),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -384,7 +390,8 @@ class RegistrationPage extends StatelessWidget {
   }
 }
 
-// Main Application Page with Toggle Feature
+
+// ...existing code...
 class MainAppPage extends StatefulWidget {
   @override
   _MainAppPageState createState() => _MainAppPageState();
@@ -392,41 +399,7 @@ class MainAppPage extends StatefulWidget {
 
 class _MainAppPageState extends State<MainAppPage> {
   bool isOrderer = true;
-  late Razorpay _razorpay;
   int totalAmount = 0; // Total amount in rupees
-
-  @override
-  void initState() {
-    super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    super.dispose();
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Payment Success: ${response.paymentId}")),
-    );
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Payment Failed: ${response.message}")),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("External Wallet: ${response.walletName}")),
-    );
-  }
 
   void openCheckout() {
     var options = {
@@ -438,21 +411,22 @@ class _MainAppPageState extends State<MainAppPage> {
         'contact': '9876543210',
         'email': 'test@example.com',
       },
+      'theme': {
+        'color': '#F37254'
+      }
     };
 
-    try {
-      _razorpay.open(options);
-    } catch (e) {
-      print(e.toString());
-    }
+    // Call Razorpay checkout JS function
+    js.context.callMethod('eval', [
+      'var rzp = new Razorpay(${jsonEncode(options)}); rzp.open();'
+    ]);
   }
 
   void updateTotalAmount(int amount) {
-  setState(() {
-    totalAmount += amount;  // Accumulate the total amount
-  });
-}
-
+    setState(() {
+      totalAmount += amount; // Accumulate the total amount
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -462,15 +436,7 @@ class _MainAppPageState extends State<MainAppPage> {
         actions: [
           IconButton(
             icon: Icon(Icons.payment),
-            onPressed: () {
-              if (totalAmount > 0) {
-                openCheckout();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Cart is empty! Add items to proceed.')),
-                );
-              }
-            },
+            onPressed: openCheckout,
           ),
           Switch(
             value: isOrderer,
@@ -483,97 +449,137 @@ class _MainAppPageState extends State<MainAppPage> {
         ],
       ),
       body: isOrderer
-          ? OrdererPage(onTotalUpdate: updateTotalAmount)
+          ? OrdererPage(onTotalUpdate: updateTotalAmount) 
           : DelivererPage(),
     );
   }
 }
+// ...existing code...
 
-// Orderer Page
-
+// Placeholder for OrdererPage, should pass the callback function correctly
+// ...existing code...
 class OrdererPage extends StatelessWidget {
   final Function(int) onTotalUpdate;
 
   OrdererPage({required this.onTotalUpdate});
 
-  final List<Map<String, dynamic>> options = [
-    {'title': 'ESB Canteen', 'icon': Icons.fastfood, 'page': ESBCanteenPage(
-  onTotalUpdate: (int totalChange) {
-    // Handle the total change here, like updating a total display
-    print('Total updated: $totalChange');
-  },
-)},
-    {
-      'title': 'Multipurpose Canteen',
-      'icon': Icons.restaurant,
-      'page': MultipurposeCanteenPage(),
-    },
-    {
-      'title': 'Law Canteen',
-      'icon': Icons.lunch_dining,
-      'page': LawCanteenPage(),
-    },
-    {'title': 'Stationery', 'icon': Icons.edit_note, 'page': StationaryPage()},
-    {'title': 'Xerox', 'icon': Icons.print, 'page': XeroxPage()},
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: options.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => options[index]['page'],
-              ),
-            ).then((_) {
-              onTotalUpdate(0); // Refresh total after navigating back
-            });
-          },
-          child: Card(
-            margin: EdgeInsets.symmetric(vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            elevation: 5,
-            color: Colors.purple[50],
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  Icon(
-                    options[index]['icon'],
-                    size: 40,
-                    color: Colors.purple,
-                  ),
-                  SizedBox(width: 20),
-                  Expanded(
-                    child: Text(
-                      options[index]['title'],
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple[900],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Orderer Page'),
+      ),
+      body: ListView(
+        children: [
+          ListTile(
+            title: Text('ESB Canteen'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ESBCanteenPage(onTotalUpdate: onTotalUpdate),
+                ),
+              );
+            },
           ),
-        );
-      },
+          ListTile(
+            title: Text('Multipurpose Canteen'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MultipurposeCanteenPage(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            title: Text('Stationary Shop'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StationaryPage(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            title: Text('Xerox Shop'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => XeroxPage(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
+// ...existing code...
 
+// Deliverer Page
+class DelivererPage extends StatefulWidget {
+  @override
+  _DelivererPageState createState() => _DelivererPageState();
+}
+
+class _DelivererPageState extends State<DelivererPage> {
+  final List<Map<String, dynamic>> orders = List.generate(
+    5,
+    (index) => {
+      'orderId': index + 1,
+      'name': 'Order ${index + 1}',
+      'isDelivered': false,
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Deliverer')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView.builder(
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            return Card(
+              elevation: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ListTile(
+                leading: Icon(
+                  orders[index]['isDelivered']
+                      ? Icons.check_circle
+                      : Icons.pending,
+                  color: orders[index]['isDelivered']
+                      ? Colors.green
+                      : Colors.orange,
+                ),
+                title: Text(orders[index]['name']),
+                trailing: Checkbox(
+                  value: orders[index]['isDelivered'],
+                  onChanged: (value) {
+                    setState(() {
+                      orders[index]['isDelivered'] = value!;
+                    });
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 // Separate pages for each entity
 
 class ESBCanteenPage extends StatefulWidget {
-  final Function(int) onTotalUpdate; // Callback to update total
+  final Function(int) onTotalUpdate;
 
   ESBCanteenPage({required this.onTotalUpdate});
 
@@ -583,30 +589,29 @@ class ESBCanteenPage extends StatefulWidget {
 
 class _ESBCanteenPageState extends State<ESBCanteenPage> {
   final List<Map<String, dynamic>> items = [
-    {'name': 'Idli Vada', 'price': 45},
-    {'name': 'Vada', 'price': 20},
-    {'name': 'Masala Dosa', 'price': 45},
-    {'name': 'Set Dosa', 'price': 45},
-    {'name': 'Chapathi Meals', 'price': 50},
-    {'name': 'Orange Juice', 'price': 30},
-    {'name': 'Moosambi Juice', 'price': 30},
-    {'name': 'Oreo Milkshake', 'price': 50},
-    {'name': 'Water Bottle', 'price': 20},
-    {'name': 'Watermelon Juice', 'price': 40},
+    {'name': 'Idli Vada', 'price': 45, 'image': 'assets/idli_vada.jpg'},
+    {'name': 'Vada', 'price': 20, 'image': 'assets/vada.jpg'},
+    {'name': 'Masala Dosa', 'price': 45, 'image': 'assets/masala_dosa.jpg'},
+    {'name': 'Set Dosa', 'price': 45, 'image': 'assets/set_dosa.jpg'},
+    {'name': 'Chapathi Meals', 'price': 50, 'image': 'assets/chapathi_meals.jpg'},
+    {'name': 'Orange Juice', 'price': 30, 'image': 'assets/orange_juice.jpg'},
+    {'name': 'Moosambi Juice', 'price': 30, 'image': 'assets/moosambi_juice.jpg'},
+    {'name': 'Oreo Milkshake', 'price': 50, 'image': 'assets/oreo_milkshake.jpg'},
+    {'name': 'Water Bottle', 'price': 20, 'image': 'assets/water_bottle.jpg'},
+    {'name': 'Watermelon Juice', 'price': 40, 'image': 'assets/watermelon_juice.jpg'},
   ];
 
-  final Map<int, int> quantities = {}; // Tracks quantities for each item
+  final Map<int, int> quantities = {};
 
   void updateQuantity(int index, int delta) {
-  setState(() {
-    quantities[index] = (quantities[index] ?? 0) + delta;
-    if (quantities[index]! < 0) quantities[index] = 0; // Prevent negatives
-  });
+    setState(() {
+      quantities[index] = (quantities[index] ?? 0) + delta;
+      if (quantities[index]! < 0) quantities[index] = 0;
+    });
 
-  final int totalChange = (delta * items[index]['price']).toInt(); // Explicit cast to int
-  widget.onTotalUpdate(totalChange); // Notify parent about total change
-}
-
+    final int totalChange = (delta * items[index]['price']).toInt();
+    widget.onTotalUpdate(totalChange);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -630,12 +635,24 @@ class _ESBCanteenPageState extends State<ESBCanteenPage> {
                 children: [
                   Expanded(
                     flex: 2,
-                    child: Text(
-                      items[index]['name'],
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          items[index]['name'],
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Image.asset(
+                          items[index]['image'],
+                          height: 100,
+                          width: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(
@@ -687,6 +704,7 @@ class MultipurposeCanteenPage extends StatelessWidget {
     {'title': 'Bakery', 'icon': Icons.cake},
     {'title': 'Cafe De Costa', 'icon': Icons.local_cafe},
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -1898,60 +1916,6 @@ class _XeroxPageState extends State<XeroxPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Deliverer Page
-class DelivererPage extends StatefulWidget {
-  @override
-  _DelivererPageState createState() => _DelivererPageState();
-}
-
-class _DelivererPageState extends State<DelivererPage> {
-  final List<Map<String, dynamic>> orders = List.generate(
-    5,
-    (index) => {
-      'orderId': index + 1,
-      'name': 'Order ${index + 1}',
-      'isDelivered': false,
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            return Card(
-              elevation: 4,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: Icon(
-                  orders[index]['isDelivered']
-                      ? Icons.check_circle
-                      : Icons.pending,
-                  color: orders[index]['isDelivered']
-                      ? Colors.green
-                      : Colors.orange,
-                ),
-                title: Text(orders[index]['name']),
-                trailing: Checkbox(
-                  value: orders[index]['isDelivered'],
-                  onChanged: (value) {
-                    setState(() {
-                      orders[index]['isDelivered'] = value!;
-                    });
-                  },
-                ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
