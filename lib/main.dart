@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 void main() {
   runApp(MyApp());
@@ -391,6 +392,67 @@ class MainAppPage extends StatefulWidget {
 
 class _MainAppPageState extends State<MainAppPage> {
   bool isOrderer = true;
+  late Razorpay _razorpay;
+  int totalAmount = 0; // Total amount in rupees
+
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Payment Success: ${response.paymentId}")),
+    );
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Payment Failed: ${response.message}")),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("External Wallet: ${response.walletName}")),
+    );
+  }
+
+  void openCheckout() {
+    var options = {
+      'key': 'rzp_test_ry9cS8x8J3XYbD',
+      'amount': totalAmount * 100, // Amount in paise
+      'name': 'StudVery',
+      'description': 'Payment for order',
+      'prefill': {
+        'contact': '9876543210',
+        'email': 'test@example.com',
+      },
+    };
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      print(e.toString());
+    }
+  }
+
+  void updateTotalAmount(int amount) {
+  setState(() {
+    totalAmount += amount;  // Accumulate the total amount
+  });
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -398,6 +460,18 @@ class _MainAppPageState extends State<MainAppPage> {
       appBar: AppBar(
         title: Text('StudVery'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.payment),
+            onPressed: () {
+              if (totalAmount > 0) {
+                openCheckout();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Cart is empty! Add items to proceed.')),
+                );
+              }
+            },
+          ),
           Switch(
             value: isOrderer,
             onChanged: (value) {
@@ -408,7 +482,9 @@ class _MainAppPageState extends State<MainAppPage> {
           ),
         ],
       ),
-      body: isOrderer ? OrdererPage() : DelivererPage(),
+      body: isOrderer
+          ? OrdererPage(onTotalUpdate: updateTotalAmount)
+          : DelivererPage(),
     );
   }
 }
@@ -416,17 +492,26 @@ class _MainAppPageState extends State<MainAppPage> {
 // Orderer Page
 
 class OrdererPage extends StatelessWidget {
+  final Function(int) onTotalUpdate;
+
+  OrdererPage({required this.onTotalUpdate});
+
   final List<Map<String, dynamic>> options = [
-    {'title': 'ESB Canteen', 'icon': Icons.fastfood, 'page': ESBCanteenPage()},
+    {'title': 'ESB Canteen', 'icon': Icons.fastfood, 'page': ESBCanteenPage(
+  onTotalUpdate: (int totalChange) {
+    // Handle the total change here, like updating a total display
+    print('Total updated: $totalChange');
+  },
+)},
     {
       'title': 'Multipurpose Canteen',
       'icon': Icons.restaurant,
-      'page': MultipurposeCanteenPage()
+      'page': MultipurposeCanteenPage(),
     },
     {
       'title': 'Law Canteen',
       'icon': Icons.lunch_dining,
-      'page': LawCanteenPage()
+      'page': LawCanteenPage(),
     },
     {'title': 'Stationery', 'icon': Icons.edit_note, 'page': StationaryPage()},
     {'title': 'Xerox', 'icon': Icons.print, 'page': XeroxPage()},
@@ -434,62 +519,53 @@ class OrdererPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title:
-            Text('Order Mode', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: options.length,
-          itemBuilder: (context, index) {
-            return GestureDetector(
-              onTap: () {
-                // Navigate to the respective page
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => options[index]['page'],
-                  ),
-                );
-              },
-              child: Card(
-                margin: EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: 5,
-                color: Colors.purple[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    children: [
-                      Icon(
-                        options[index]['icon'],
-                        size: 40,
-                        color: Colors.purple,
-                      ),
-                      SizedBox(width: 20),
-                      Expanded(
-                        child: Text(
-                          options[index]['title'],
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.purple[900],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    return ListView.builder(
+      itemCount: options.length,
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => options[index]['page'],
               ),
-            );
+            ).then((_) {
+              onTotalUpdate(0); // Refresh total after navigating back
+            });
           },
-        ),
-      ),
+          child: Card(
+            margin: EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            elevation: 5,
+            color: Colors.purple[50],
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                children: [
+                  Icon(
+                    options[index]['icon'],
+                    size: 40,
+                    color: Colors.purple,
+                  ),
+                  SizedBox(width: 20),
+                  Expanded(
+                    child: Text(
+                      options[index]['title'],
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -497,65 +573,40 @@ class OrdererPage extends StatelessWidget {
 // Separate pages for each entity
 
 class ESBCanteenPage extends StatefulWidget {
+  final Function(int) onTotalUpdate; // Callback to update total
+
+  ESBCanteenPage({required this.onTotalUpdate});
+
   @override
   _ESBCanteenPageState createState() => _ESBCanteenPageState();
 }
 
-class _ESBCanteenPageState extends State<ESBCanteenPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _animation;
-
-  // List of items with images, names, and prices
+class _ESBCanteenPageState extends State<ESBCanteenPage> {
   final List<Map<String, dynamic>> items = [
-    {'name': 'Idli Vada', 'price': 45, 'image': 'assets/idli_vada.jpg'},
-    {'name': 'Vada', 'price': 20, 'image': 'assets/vada.jpg'},
-    {'name': 'Masala Dosa', 'price': 45, 'image': 'assets/masala_dosa.jpg'},
-    {'name': 'Set Dosa', 'price': 45, 'image': 'assets/set_dosa.jpg'},
-    {
-      'name': 'Chapathi Meals',
-      'price': 50,
-      'image': 'assets/chapathi_meals.jpg'
-    },
-    {'name': 'Orange Juice', 'price': 30, 'image': 'assets/orange_juice.jpg'},
-    {
-      'name': 'Moosambi Juice',
-      'price': 30,
-      'image': 'assets/moosambi_juice.jpg'
-    },
-    {
-      'name': 'Oreo Milkshake',
-      'price': 50,
-      'image': 'assets/oreo_milkshake.jpg'
-    },
-    {'name': 'Water Bottle', 'price': 20, 'image': 'assets/water_bottle.jpg'},
-    {
-      'name': 'Watermelon Juice',
-      'price': 40,
-      'image': 'assets/watermelon_juice.jpg'
-    },
+    {'name': 'Idli Vada', 'price': 45},
+    {'name': 'Vada', 'price': 20},
+    {'name': 'Masala Dosa', 'price': 45},
+    {'name': 'Set Dosa', 'price': 45},
+    {'name': 'Chapathi Meals', 'price': 50},
+    {'name': 'Orange Juice', 'price': 30},
+    {'name': 'Moosambi Juice', 'price': 30},
+    {'name': 'Oreo Milkshake', 'price': 50},
+    {'name': 'Water Bottle', 'price': 20},
+    {'name': 'Watermelon Juice', 'price': 40},
   ];
 
-  // Quantity tracker
-  final Map<int, int> quantities = {};
+  final Map<int, int> quantities = {}; // Tracks quantities for each item
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: Duration(seconds: 1),
-      vsync: this,
-    );
-    _animation = Tween<Offset>(begin: Offset(0, -1), end: Offset(0, 0))
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
-  }
+  void updateQuantity(int index, int delta) {
+  setState(() {
+    quantities[index] = (quantities[index] ?? 0) + delta;
+    if (quantities[index]! < 0) quantities[index] = 0; // Prevent negatives
+  });
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final int totalChange = (delta * items[index]['price']).toInt(); // Explicit cast to int
+  widget.onTotalUpdate(totalChange); // Notify parent about total change
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -564,113 +615,70 @@ class _ESBCanteenPageState extends State<ESBCanteenPage>
         title: Text('ESB Canteen'),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          SlideTransition(
-            position: _animation,
+      body: ListView.builder(
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            elevation: 4,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Welcome to ESB Canteen',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.purple,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 8.0,
-                  mainAxisSpacing: 8.0,
-                  childAspectRatio: 0.75,
-                ),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      items[index]['name'],
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    elevation: 5,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      '₹${items[index]['price']}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.green[700],
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.asset(
-                              items[index]['image'],
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text(
-                            items[index]['name'],
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                        IconButton(
+                          icon: Icon(Icons.remove_circle_outline),
+                          onPressed: () => updateQuantity(index, -1),
                         ),
                         Text(
-                          '₹${items[index]['price']}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.green[700],
-                            fontWeight: FontWeight.bold,
-                          ),
+                          '${quantities[index] ?? 0}',
+                          style: TextStyle(fontSize: 16),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.remove_circle_outline),
-                              onPressed: () {
-                                setState(() {
-                                  quantities[index] =
-                                      (quantities[index] ?? 1) - 1;
-                                  if (quantities[index]! <= 0) {
-                                    quantities[index] = 0;
-                                  }
-                                });
-                              },
-                            ),
-                            Text(
-                              '${quantities[index] ?? 0}',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.add_circle_outline),
-                              onPressed: () {
-                                setState(() {
-                                  quantities[index] =
-                                      (quantities[index] ?? 0) + 1;
-                                });
-                              },
-                            ),
-                          ],
+                        IconButton(
+                          icon: Icon(Icons.add_circle_outline),
+                          onPressed: () => updateQuantity(index, 1),
                         ),
                       ],
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 }
+
 
 class MultipurposeCanteenPage extends StatelessWidget {
   final List<Map<String, dynamic>> options = [
