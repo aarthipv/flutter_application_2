@@ -34,6 +34,13 @@ class _RazorpayPaymentPageState extends State<RazorpayPaymentPage> {
         js.allowInterop((response) {
           // Handle success
           print('Payment successful: $response');
+          if (mounted) {
+            print('Navigating to OrderSuccessPage');
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => OrderSuccessPage()),
+            );
+          }
         }),
         js.allowInterop((response) {
           // Handle failure
@@ -49,13 +56,27 @@ class _RazorpayPaymentPageState extends State<RazorpayPaymentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Razorpay Payment'),
+        title: Text('Payment'),
       ),
       body: Center(
         child: ElevatedButton(
           onPressed: openCheckout,
           child: Text('Pay Now'),
         ),
+      ),
+    );
+  }
+}
+
+class OrderSuccessPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Order Successful'),
+      ),
+      body: Center(
+        child: Text('Your order was successful!'),
       ),
     );
   }

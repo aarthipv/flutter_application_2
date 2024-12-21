@@ -71,7 +71,6 @@ class MyApp extends StatelessWidget {
 }
 
 
-// Main Application Page with Toggle Feature
 class MainAppPage extends StatefulWidget {
   @override
   _MainAppPageState createState() => _MainAppPageState();
@@ -84,7 +83,15 @@ class _MainAppPageState extends State<MainAppPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('StudVery'),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/logo.jpg', // Replace with your logo path
+            width: 200, // Adjust the width as needed
+            height: 200, // Adjust the height as needed
+          ),
+        ),
+        centerTitle: true,
         actions: [
           Switch(
             value: isOrderer,

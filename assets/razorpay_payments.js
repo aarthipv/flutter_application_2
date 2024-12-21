@@ -1,16 +1,10 @@
-
-
-console.log("razorpay_payments.js loaded");
-
 function openRazorpayPayment(options, successCallback, failureCallback) {
-  console.log("openRazorpayPayment called with options:", options);
+  // Assuming Razorpay is already included in your project
   var rzp = new Razorpay(options);
-  rzp.on('payment.success', function (response) {
-    console.log("Payment successful:", response);
+  rzp.on('payment.success', function(response) {
     successCallback(response);
   });
-  rzp.on('payment.error', function (response) {
-    console.log("Payment failed:", response);
+  rzp.on('payment.error', function(response) {
     failureCallback(response);
   });
   rzp.open();
