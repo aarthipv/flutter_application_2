@@ -1,11 +1,11 @@
-function openRazorpayPayment(options, onSuccess, onFailure) {
-    const rzp = new Razorpay(options);
-    rzp.open();
-    rzp.on('payment.success', function(response) {
-        onSuccess(response);
-    });
-
-    rzp.on('payment.error', function(response) {
-        onFailure(response);
-    });
+function openRazorpayPayment(options, successCallback, failureCallback) {
+  // Assuming Razorpay is already included in your project
+  var rzp = new Razorpay(options);
+  rzp.on('payment.success', function(response) {
+    successCallback(response);
+  });
+  rzp.on('payment.error', function(response) {
+    failureCallback(response);
+  });
+  rzp.open();
 }
